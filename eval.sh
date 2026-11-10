@@ -13,6 +13,6 @@ if [[ -z "${PYTHON:-}" ]]; then
 fi
 exec "$PYTHON" "$SCRIPT_DIR/run.py" run \
     --ckpt "$CKPT" --model SiT-XL/2 --gpus 0,1,2,3 \
-    --batch-size 32 --num-samples 50000 --mode sde --num-steps 250 \
+    --batch-size 64 --num-samples 50000 --mode sde --num-steps 250 \
     --cfg-scale 1.7 --guidance-low 0.0 --guidance-high 0.7 \
     --vae mse --seed 0 --output-dir results/step1M-cfg1.7 "$@"

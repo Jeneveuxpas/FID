@@ -25,7 +25,7 @@ bash eval.sh /path/to/checkpoints/1000000.pt
 | 样本数 | 50,000 |
 | 采样 | SDE，250 步 |
 | VAE | iREPA 官方转换的 MSE VAE，配套 latent 统计 |
-| 每 GPU batch | 32，全局 batch 128 |
+| 每 GPU batch | 64，全局 batch 256 |
 | seed / 精度 | 0 / FP32，TF32 开启 |
 | 分辨率 | 从 checkpoint args 读取，缺失时默认 256 |
 | 输出目录 | `results/step1M-cfg1.7` |
@@ -96,7 +96,7 @@ bash fid.sh results/step1M-cfg1.7/samples.npz \
 python run.py run \
   --ckpt /path/to/checkpoints/1000000.pt \
   --model SiT-XL/2 --resolution 256 \
-  --gpus 0,1,2,3 --batch-size 32 --num-samples 50000 \
+  --gpus 0,1,2,3 --batch-size 64 --num-samples 50000 \
   --mode sde --num-steps 250 --vae mse \
   --cfg-scale 1.7 --guidance-low 0.0 --guidance-high 0.7 \
   --seed 0 --output-dir results/step1M-cfg1.7
