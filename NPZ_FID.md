@@ -56,7 +56,7 @@ bash fid.sh --prepare --resolution 512 --cache-dir /data/fid-assets
 | `classify_image_graph_def.pb`（约 95.7 MB） | ADM Inception 图和权重 |
 
 512 分辨率自动使用 `VIRTUAL_imagenet512.npz`。以上资源从 OpenAI 官方公开存储下载，不上传到此 Git 仓库。
-下载失败会重试；未完成文件写到 `.partial`，下次重新下载。完成的资源用本地 SHA256 收据检查后复用；该收据用于检测缓存变化，不是官方签名。请勿同时向同一缓存目录启动多个下载。
+下载失败会重试；多连接下载保留分块供续传，串行回退的未完成文件写到 `.partial`，下次重新下载。完成的资源用本地 SHA256 收据检查后复用；该收据用于检测缓存变化，不是官方签名。请勿同时向同一缓存目录启动多个下载。
 
 联网机器准备好后，复制 `assets/`（包括 `.download.json` 收据）到目标机器：
 
@@ -111,3 +111,20 @@ python -c 'import tensorflow as tf; print(tf.config.list_physical_devices("GPU")
 - 评估实现：[OpenAI guided-diffusion evaluations](https://github.com/openai/guided-diffusion/tree/main/evaluations)，经 SIT 工作树沿用；上游 MIT 许可证附在 `LICENSE`。
 - 新入口仅执行 FID 所需的部分，保留原 Inception 特征图和 Fréchet distance 实现。
 - 已做 Python/shell 语法及本地输入、缓存、命令入口检查。尚未在目标 Linux GPU 上完成真实样本的端到端 FID 验证。
+
+## 下载加速与 batch size
+
+大文件默认使用 Python 内置的 **16 连接分块下载**，无需安装额外下载器；中断后保留 `.partial.chunks/`，重跑会续传已下载的分块。服务器必须支持 Range 和强 ETag，否则自动回退原串行下载。实际速度取决于服务器、网络出口和磁盘，不能保证固定加速倍数。
+
+```bash
+# 更新代码后，预下载资源；可调至最多 32 连接
+FID_DOWNLOAD_CONNECTIONS=32 python run.py prepare
+
+# 每张 GPU 64 个样本，4 卡全局 batch=256；FID batch 独立设置
+bash eval.sh /path/to/1000000.pt --batch-size 64 --fid-batch-size 128 \
+  --output-dir results/step1M-bs64
+```
+
+显存不足时减小对应 batch。改变采样 batch 会改变样本随机数分配，不能对原样本使用 `--resume`；换一个输出目录重新采样。仅调整 FID batch 不改变采样配置。旧版本串行下载留下的单个 `.partial` 不作为可信分块续传，首次切换加速下载会重新分块；已完成且校验通过的缓存继续复用。
+
+若多连接被网络限制，设置 `FID_DOWNLOAD_CONNECTIONS=1` 使用串行下载。

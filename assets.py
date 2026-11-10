@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import time
 import urllib.request
+from fast_download import parallel_download, clear_chunks
 
 BASE = 'https://openaipublic.blob.core.windows.net/diffusion/jul-2021/ref_batches/'
 INCEPTION = BASE + 'classify_image_graph_def.pb'
@@ -35,6 +36,18 @@ def download(url, target, offline=False, expected_sha256=None):
         raise ValueError(f'Unverified existing asset: {target}; use --ref-batch/--inception for manually downloaded files')
     target.parent.mkdir(parents=True, exist_ok=True)
     part = target.with_name(target.name + '.partial')
+    connections = int(os.environ.get('FID_DOWNLOAD_CONNECTIONS', '16'))
+    if not 1 <= connections <= 32:
+        raise ValueError('FID_DOWNLOAD_CONNECTIONS must be between 1 and 32')
+    if parallel_download(url, part, connections):
+        info = {'url': url, 'size': part.stat().st_size, 'sha256': sha256(part)}
+        if expected_sha256 and info['sha256'] != expected_sha256:
+            clear_chunks(part)
+            raise ValueError(f'Official SHA256 mismatch: {target}; retry download')
+        os.replace(part, target)
+        receipt.write_text(json.dumps(info, indent=2) + '\n')
+        clear_chunks(part)
+        return target
     for attempt in range(3):
         try:
             print(f'Downloading {url} -> {target}', flush=True)

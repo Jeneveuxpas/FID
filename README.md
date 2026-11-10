@@ -55,7 +55,7 @@ python run.py prepare --resolution 512
 配套 `sdvae-ft-mse-f8d4-latents-stats.pt`（1,704 字节）已随仓库提供，并按 iREPA 官方 LFS SHA256 校验；VAE 下载也核对官方 SHA256。
 如训练使用了自定义 latent 统计，请传入 `--latent-stats /path/to/your-stats.pt`。
 
-下载失败会重试，未完成文件保存在 `.partial`，重新启动会从头下载未完成资源；完整缓存检查哈希后复用。请勿让多个进程同时下载到同一缓存目录。
+下载失败会重试，多连接下载保留分块供续传；串行回退的未完成文件保存在 `.partial`，重新启动会从头下载；完整缓存检查哈希后复用。请勿让多个进程同时下载到同一缓存目录。
 
 准备好后，复制仓库、完整 `assets/`（包括 `.download.json`）和 checkpoint 到离线 GPU 机器，在已装好依赖的环境运行：
 
@@ -134,3 +134,20 @@ python -c 'import tensorflow as tf, scipy, requests, tqdm; print("TensorFlow GPU
 ```bash
 python -m unittest discover -s . -p 'test_*.py' -v
 ```
+
+## 下载加速与 batch size
+
+大文件默认使用 Python 内置的 **16 连接分块下载**，无需安装额外下载器；中断后保留 `.partial.chunks/`，重跑会续传已下载的分块。服务器必须支持 Range 和强 ETag，否则自动回退原串行下载。实际速度取决于服务器、网络出口和磁盘，不能保证固定加速倍数。
+
+```bash
+# 更新代码后，预下载资源；可调至最多 32 连接
+FID_DOWNLOAD_CONNECTIONS=32 python run.py prepare
+
+# 每张 GPU 64 个样本，4 卡全局 batch=256；FID batch 独立设置
+bash eval.sh /path/to/1000000.pt --batch-size 64 --fid-batch-size 128 \
+  --output-dir results/step1M-bs64
+```
+
+显存不足时减小对应 batch。改变采样 batch 会改变样本随机数分配，不能对原样本使用 `--resume`；换一个输出目录重新采样。仅调整 FID batch 不改变采样配置。旧版本串行下载留下的单个 `.partial` 不作为可信分块续传，首次切换加速下载会重新分块；已完成且校验通过的缓存继续复用。
+
+若多连接被网络限制，设置 `FID_DOWNLOAD_CONNECTIONS=1` 使用串行下载。

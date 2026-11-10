@@ -8,6 +8,11 @@ import assets
 from fid import inspect_samples
 
 class ToolTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.dict("os.environ", {"FID_DOWNLOAD_CONNECTIONS": "1"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
 
     def test_download_cache_offline_and_corruption(self):
         with tempfile.TemporaryDirectory() as folder:
