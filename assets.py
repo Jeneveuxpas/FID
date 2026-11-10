@@ -76,3 +76,43 @@ def prepare_metric_assets(args):
         if not path.is_file() or path.stat().st_size == 0:
             raise FileNotFoundError(path)
     return ref, inception
+
+
+def prepare_vae(args):
+    if args.vae == 'mse':
+        return download(
+            IREPA + 'sdvae-ft-mse-f8d4.pt',
+            Path(args.cache_dir).expanduser().resolve() / 'sdvae-ft-mse-f8d4.pt',
+            args.offline,
+            'db2202ed373c6a28e59f4ab1f9d5043774ac1e71a3cecb3f806cba2f5ca95d0a')
+    from diffusers import AutoencoderKL
+    target = Path(args.cache_dir).expanduser().resolve() / f'vae-{args.vae}'
+    if (target / 'config.json').is_file():
+        # Verify weights can be loaded, including offline mode.
+        AutoencoderKL.from_pretrained(str(target), local_files_only=True)
+    elif args.offline:
+        raise FileNotFoundError(f'Missing VAE: {target}; run prepare online first')
+    else:
+        vae = AutoencoderKL.from_pretrained(f'stabilityai/sd-vae-ft-{args.vae}')
+        vae.save_pretrained(str(target))
+    return target
+
+
+IREPA = 'https://huggingface.co/REPA-E/iREPA-collections/resolve/main/pretrained_models/'
+STATS_SHA256 = '5e9e42b7d12764372c38644ad520a1ff254bed01fcb6b6c57f75917cee247449'
+
+
+def prepare_stats(args):
+    if args.latent_stats:
+        path = Path(args.latent_stats).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        return path
+    bundled = Path(__file__).resolve().parent / 'pretrained_models/sdvae-ft-mse-f8d4-latents-stats.pt'
+    if bundled.is_file():
+        if sha256(bundled) != STATS_SHA256:
+            raise ValueError('Bundled latent stats failed official SHA256 check')
+        return bundled
+    return download(IREPA + 'sdvae-ft-mse-f8d4-latents-stats.pt',
+                    Path(args.cache_dir).expanduser().resolve() / 'latent-stats.pt',
+                    args.offline, STATS_SHA256)

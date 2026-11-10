@@ -8,4 +8,4 @@ if [[ -z "${PYTHON:-}" ]]; then
         PYTHON=python3
     fi
 fi
-exec "$PYTHON" "$SCRIPT_DIR/run.py" "$@"
+exec "$PYTHON" "$SCRIPT_DIR/npz_fid.py" "$@"

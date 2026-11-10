@@ -8,3 +8,6 @@ assets/
 *.fid.json
 .venv*/
 .DS_Store
+results/
+fid-output/
+!pretrained_models/sdvae-ft-mse-f8d4-latents-stats.pt
