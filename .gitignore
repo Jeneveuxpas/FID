@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+assets/
+*.npz
+*.pb
+*.pt
+*.partial
+*.fid.json
+.venv*/
+.DS_Store
